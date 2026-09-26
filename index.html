@@ -102,7 +102,7 @@ button:hover{opacity:.85}
 </div>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getDatabase, ref, push, set, onValue, remove } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+import { getDatabase, ref, push, set, onValue, remove, runTransaction } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 const firebaseConfig={apiKey:"AIzaSyDe6jj7XQctQvIsoWJyBvKl3TQ5wy14CCU",authDomain:"scladchyk.firebaseapp.com",databaseURL:"https://scladchyk-default-rtdb.europe-west1.firebasedatabase.app",projectId:"scladchyk",storageBucket:"scladchyk.firebasestorage.app",messagingSenderId:"126345381398",appId:"1:126345381398:web:f3beb86fd859064e58d737"};
 const app=initializeApp(firebaseConfig);const db=getDatabase(app);
 let currentLocation="warehouse",products=[],warehouseProducts=[],homeProducts=[],unsubscribeWarehouse=null,unsubscribeHome=null,historyEntries=[];
@@ -246,9 +246,23 @@ window.addProduct=addProduct;
 
 async function changeQuantity(id,amount,locationKey=currentLocation){
 const source=locationKey==="warehouse"?warehouseProducts:homeProducts;const product=source.find(p=>p.id===id);if(!product)return;
-const newQuantity=Math.max(0,(Number(product.quantity)||0)+amount);
-try{await set(ref(db,locationPaths[locationKey]+"/"+id+"/quantity"),newQuantity);await addHistory(amount>0?"Додано":"Віднято",product.name,locationKey==="warehouse"?"Склад":"Дім",(Number(product.quantity)||0)+" → "+newQuantity+" "+product.unit,amount)}
-catch(error){console.error(error);alert("Не вдалося змінити кількість. Перевір підключення до Firebase.")}
+const quantityRef=ref(db,locationPaths[locationKey]+"/"+id+"/quantity");
+try{
+  let beforeQuantity=0;
+  let newQuantity=0;
+  await runTransaction(quantityRef,current=>{
+    beforeQuantity=Number(current)||0;
+    newQuantity=Math.max(0,beforeQuantity+amount);
+    return newQuantity;
+  });
+  await addHistory(
+    amount>0?"Додано":"Віднято",
+    product.name,
+    locationKey==="warehouse"?"Склад":"Дім",
+    beforeQuantity+" → "+newQuantity+" "+product.unit,
+    newQuantity-beforeQuantity
+  );
+}catch(error){console.error(error);alert("Не вдалося змінити кількість. Перевір підключення до Firebase.")}
 }
 window.changeQuantity=changeQuantity;
 
