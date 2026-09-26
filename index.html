@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Мій склад</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f5f5f7;color:#222}
+.container{max-width:900px;margin:auto;padding:20px}
+h1{margin-bottom:5px}.subtitle{color:#777;margin-bottom:20px}
+.top{display:flex;gap:10px;margin-bottom:20px}
+input,select,button{font-size:16px;border-radius:10px;padding:12px;border:1px solid #ddd}
+.search{flex:1}button{cursor:pointer;background:#222;color:#fff;border:none}
+button:hover{opacity:.85}
+.stats{display:flex;gap:10px;margin-bottom:20px}
+.stat{background:#fff;border-radius:15px;padding:15px;flex:1;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+.stat strong{display:block;font-size:24px}
+.product{background:#fff;padding:16px;border-radius:15px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+.product-info h3{margin:0 0 5px}.category{color:#777;font-size:14px}
+.quantity{font-size:22px;font-weight:bold}.low{color:#d35400}
+.controls{display:flex;gap:7px;align-items:center}.controls button{width:42px;height:42px;padding:0}
+.delete{background:#c0392b}
+.add-form{background:#fff;padding:20px;border-radius:15px;margin-bottom:20px;display:none}
+.add-form.active{display:block}.form-row{display:flex;gap:10px;margin-bottom:10px}.form-row>*{flex:1}
+@media(max-width:600px){.top{flex-direction:column}.stats{flex-direction:column}.product{flex-direction:column;align-items:flex-start;gap:15px}.controls{width:100%}.controls button{flex:1}.form-row{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>📦 Мій склад</h1>
+<div class="subtitle">Облік запасів</div>
+<div class="top">
+<input id="search" class="search" placeholder="🔍 Пошук товару..." oninput="render()">
+<select id="categoryFilter" onchange="render()">
+<option value="all">Усі категорії</option><option value="Продукти">Продукти</option><option value="Побутова хімія">Побутова хімія</option><option value="Гігієна">Гігієна</option><option value="Господарське">Господарське</option><option value="Інше">Інше</option>
+</select>
+<button onclick="toggleForm()">＋ Додати</button>
+</div>
+<div id="addForm" class="add-form">
+<h2>Новий товар</h2>
+<div class="form-row">
+<input id="name" placeholder="Назва товару">
+<select id="category"><option>Продукти</option><option>Побутова хімія</option><option>Гігієна</option><option>Господарське</option><option>Інше</option></select>
+</div>
+<div class="form-row">
+<input id="quantity" type="number" min="0" placeholder="Кількість">
+<input id="unit" placeholder="Одиниця: шт, кг, л...">
+<input id="minimum" type="number" min="0" placeholder="Мінімум">
+</div>
+<button onclick="addProduct()">Зберегти товар</button>
+</div>
+<div class="stats">
+<div class="stat"><strong id="productCount">0</strong>товарів</div>
+<div class="stat"><strong id="lowCount">0</strong>закінчується</div>
+</div>
+<div id="products"></div>
+</div>
+<script>
+let products=JSON.parse(localStorage.getItem("warehouse"))||[];
+function save(){localStorage.setItem("warehouse",JSON.stringify(products))}
+function toggleForm(){document.getElementById("addForm").classList.toggle("active")}
+function addProduct(){
+const name=document.getElementById("name").value.trim();
+const category=document.getElementById("category").value;
+const quantity=Number(document.getElementById("quantity").value);
+const unit=document.getElementById("unit").value.trim()||"шт";
+const minimum=Number(document.getElementById("minimum").value);
+if(!name){alert("Введи назву товару");return}
+products.push({id:Date.now(),name,category,quantity,unit,minimum});
+save();
+document.getElementById("name").value="";
+document.getElementById("quantity").value="";
+document.getElementById("unit").value="";
+document.getElementById("minimum").value="";
+toggleForm();render();
+}
+function changeQuantity(id,amount){
+const product=products.find(p=>p.id===id);if(!product)return;
+product.quantity+=amount;if(product.quantity<0)product.quantity=0;
+save();render();
+}
+function deleteProduct(id){
+if(!confirm("Видалити цей товар?"))return;
+products=products.filter(p=>p.id!==id);save();render();
+}
+function render(){
+const container=document.getElementById("products");
+const search=document.getElementById("search").value.toLowerCase();
+const category=document.getElementById("categoryFilter").value;
+const filtered=products.filter(product=>{
+const matchesSearch=product.name.toLowerCase().includes(search);
+const matchesCategory=category==="all"||product.category===category;
+return matchesSearch&&matchesCategory;
+});
+container.innerHTML="";
+filtered.forEach(product=>{
+const isLow=product.quantity<=product.minimum;
+const element=document.createElement("div");
+element.className="product";
+element.innerHTML=`
+<div class="product-info"><h3>${product.name}</h3><div class="category">${product.category}</div><div class="${isLow?"low":""}">${isLow?"⚠️ Мало запасу":""}</div></div>
+<div class="controls"><button onclick="changeQuantity(${product.id},-1)">−</button><div class="quantity">${product.quantity} ${product.unit}</div><button onclick="changeQuantity(${product.id},1)">+</button><button class="delete" onclick="deleteProduct(${product.id})">🗑</button></div>`;
+container.appendChild(element);
+});
+document.getElementById("productCount").textContent=products.length;
+document.getElementById("lowCount").textContent=products.filter(p=>p.quantity<=p.minimum).length;
+}
+render();
+</script>
+</body>
+</html>
