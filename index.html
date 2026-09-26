@@ -114,13 +114,17 @@ async function addProduct(){
 window.addProduct = addProduct;
 
 async function changeQuantity(id,amount){
-  const productRef = ref(db, "products/" + id);
-  await runTransaction(product => {
-    if(product === null) return product;
-    const currentQuantity = Number(product.quantity) || 0;
-    product.quantity = Math.max(0, currentQuantity + amount);
-    return product;
-  });
+  const quantityRef = ref(db, "products/" + id + "/quantity");
+
+  try {
+    await runTransaction(quantityRef, currentQuantity => {
+      const current = Number(currentQuantity) || 0;
+      return Math.max(0, current + amount);
+    });
+  } catch (error) {
+    console.error("Помилка зміни кількості:", error);
+    alert("Не вдалося змінити кількість. Перевір підключення до Firebase.");
+  }
 }
 window.changeQuantity = changeQuantity;
 
