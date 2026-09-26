@@ -221,15 +221,18 @@ window.deleteProduct=deleteProduct;
 
 function addQuantityLongPress(button,action){
   let timer=null;
-  let firedByLongPress=false;
-  const start=()=>{firedByLongPress=false;clearTimeout(timer);timer=setTimeout(()=>{firedByLongPress=true;action();timer=null;},500);};
-  const end=(event)=>{if(timer){clearTimeout(timer);timer=null;if(!firedByLongPress&&event.type!=="mouseleave")action();}};
-  button.addEventListener("mousedown",start);
-  button.addEventListener("mouseup",end);
-  button.addEventListener("mouseleave",()=>{if(timer){clearTimeout(timer);timer=null;}});
-  button.addEventListener("touchstart",start,{passive:true});
-  button.addEventListener("touchend",end,{passive:true});
-  button.addEventListener("touchcancel",()=>{if(timer){clearTimeout(timer);timer=null;}},{passive:true});
+  let longPress=false;
+  const clear=()=>{if(timer){clearTimeout(timer);timer=null;}};
+  button.addEventListener("pointerdown",()=>{
+    longPress=false;
+    clear();
+    timer=setTimeout(()=>{longPress=true;action();timer=null;},500);
+  });
+  button.addEventListener("pointerup",()=>{
+    if(timer){clear();if(!longPress)action();}
+  });
+  button.addEventListener("pointercancel",clear);
+  button.addEventListener("pointerleave",clear);
 }
 function render(){
 const container=document.getElementById("products"),search=document.getElementById("search").value.trim().toLowerCase(),category=document.getElementById("categoryFilter").value;
