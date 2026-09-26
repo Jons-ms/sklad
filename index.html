@@ -20,7 +20,7 @@ button:hover{opacity:.85}
 .stat{background:#fff;border-radius:15px;padding:15px;flex:1;box-shadow:0 2px 8px rgba(0,0,0,.05)}
 .stat strong{display:block;font-size:24px}
 .product{background:#fff;padding:16px;border-radius:15px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.05)}
-.product-info h3{margin:0 0 5px}.category{color:#777;font-size:14px}
+.product-info h3{margin:0 0 5px}.category{color:#777;font-size:14px}.location{color:#555;font-size:13px;margin-top:3px}
 .quantity{font-size:22px;font-weight:bold}.low{color:#d35400}
 .controls{display:flex;gap:7px;align-items:center}.controls button{width:42px;height:42px;padding:0}
 .delete{background:#c0392b}
@@ -28,224 +28,123 @@ button:hover{opacity:.85}
 .add-form.active{display:block}.form-row{display:flex;gap:10px;margin-bottom:10px}
 .form-row>*{flex:1;min-width:0}
 @media(max-width:600px){
-  .container{padding:14px}
-  .top{flex-direction:column}
-  .stats{flex-direction:column}
-  .product{flex-direction:column;align-items:flex-start;gap:15px}
-  .controls{width:100%}
-  .controls button{flex:1}
-  .form-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .form-row:first-of-type{grid-template-columns:1fr}
-  .form-row>*{width:100%;min-width:0}
-  #quantity{grid-column:1}
-  #unit{grid-column:2}
-  #minimum{grid-column:1 / -1}
-  .add-form button{width:100%}
+.container{padding:14px}.top{flex-direction:column}.stats{flex-direction:column}
+.product{flex-direction:column;align-items:flex-start;gap:15px}.controls{width:100%}.controls button{flex:1}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.form-row:first-of-type{grid-template-columns:1fr}
+.form-row>*{width:100%;min-width:0}#quantity{grid-column:1}#unit{grid-column:2}#minimum{grid-column:1 / -1}.add-form button{width:100%}
 }
 </style>
 </head>
 <body>
 <div class="container">
 <h1>📦 Інвентар</h1>
-
 <div class="location-switch">
 <button id="warehouseButton" class="active" onclick="switchLocation('warehouse')">📦 Склад</button>
 <button id="homeButton" onclick="switchLocation('home')">🏠 Дім</button>
 </div>
-
 <div class="top">
 <input id="search" class="search" placeholder="🔍 Пошук товару..." oninput="render()">
 <select id="categoryFilter" onchange="render()"></select>
 <button onclick="toggleForm()">＋ Додати</button>
 </div>
-
 <div id="addForm" class="add-form">
 <h2 id="formTitle">Новий товар — Склад</h2>
-<div class="form-row">
-<input id="name" placeholder="Назва товару">
-<select id="category"></select>
-</div>
-<div class="form-row">
-<input id="quantity" type="number" min="0" placeholder="Кількість">
-<input id="unit" placeholder="Одиниця: шт, кг, л...">
-<input id="minimum" type="number" min="0" placeholder="Мінімум">
-</div>
+<div class="form-row"><input id="name" placeholder="Назва товару"><select id="category"></select></div>
+<div class="form-row"><input id="quantity" type="number" min="0" placeholder="Кількість"><input id="unit" placeholder="Одиниця: шт, кг, л..."><input id="minimum" type="number" min="0" placeholder="Мінімум"></div>
 <button onclick="addProduct()">Зберегти товар</button>
 </div>
-
-<div class="stats">
-<div class="stat"><strong id="productCount">0</strong>товарів</div>
-<div class="stat"><strong id="lowCount">0</strong>закінчується</div>
-</div>
+<div class="stats"><div class="stat"><strong id="productCount">0</strong>товарів</div><div class="stat"><strong id="lowCount">0</strong>закінчується</div></div>
 <div id="products"></div>
 </div>
-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import { getDatabase, ref, push, set, onValue, remove } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyDe6jj7XQctQvIsoWJyBvKl3TQ5wy14CCU",
-  authDomain: "scladchyk.firebaseapp.com",
-  databaseURL: "https://scladchyk-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "scladchyk",
-  storageBucket: "scladchyk.firebasestorage.app",
-  messagingSenderId: "126345381398",
-  appId: "1:126345381398:web:f3beb86fd859064e58d737"
-};
-
-const app=initializeApp(firebaseConfig);
-const db=getDatabase(app);
-
-let currentLocation="warehouse";
-let products=[];
-let unsubscribe=null;
-
+const firebaseConfig={apiKey:"AIzaSyDe6jj7XQctQvIsoWJyBvKl3TQ5wy14CCU",authDomain:"scladchyk.firebaseapp.com",databaseURL:"https://scladchyk-default-rtdb.europe-west1.firebasedatabase.app",projectId:"scladchyk",storageBucket:"scladchyk.firebasestorage.app",messagingSenderId:"126345381398",appId:"1:126345381398:web:f3beb86fd859064e58d737"};
+const app=initializeApp(firebaseConfig);const db=getDatabase(app);
+let currentLocation="warehouse",products=[],warehouseProducts=[],homeProducts=[],unsubscribeWarehouse=null,unsubscribeHome=null;
 const locationPaths={warehouse:"products",home:"homeProducts"};
 const warehouseCategories=["Продукти","Побутова хімія","Інструменти","Закрутки","Інше"];
 const homeCategories=["Продукти","Побутова хімія","Інструменти","Інше"];
 
 function updateCategories(){
-  const categories=currentLocation==="warehouse"?warehouseCategories:homeCategories;
-  const filter=document.getElementById("categoryFilter");
-  const select=document.getElementById("category");
-
-  filter.innerHTML='<option value="all">Усі категорії</option>'+categories.map(c=>'<option value="'+c+'">'+c+'</option>').join("");
-  select.innerHTML=categories.map(c=>'<option value="'+c+'">'+c+'</option>').join("");
+const categories=currentLocation==="warehouse"?warehouseCategories:homeCategories;
+document.getElementById("categoryFilter").innerHTML='<option value="all">Усі категорії</option>'+categories.map(c=>'<option value="'+c+'">'+c+'</option>').join("");
+document.getElementById("category").innerHTML=categories.map(c=>'<option value="'+c+'">'+c+'</option>').join("");
 }
-
-function getProductsRef(){return ref(db,locationPaths[currentLocation]);}
-
 function switchLocation(location){
-  currentLocation=location;
-  document.getElementById("warehouseButton").classList.toggle("active",location==="warehouse");
-  document.getElementById("homeButton").classList.toggle("active",location==="home");
-  document.getElementById("formTitle").textContent=location==="warehouse"?"Новий товар — Склад":"Новий товар — Дім";
-  document.getElementById("search").value="";
-  document.getElementById("categoryFilter").value="all";
-  document.getElementById("addForm").classList.remove("active");
-  updateCategories();
-
-  if(unsubscribe)unsubscribe();
-  unsubscribe=onValue(getProductsRef(),snapshot=>{
-    const data=snapshot.val()||{};
-    products=Object.entries(data).map(([id,product])=>({id,...product}));
-    render();
-  });
+currentLocation=location;
+document.getElementById("warehouseButton").classList.toggle("active",location==="warehouse");
+document.getElementById("homeButton").classList.toggle("active",location==="home");
+document.getElementById("formTitle").textContent=location==="warehouse"?"Новий товар — Склад":"Новий товар — Дім";
+document.getElementById("search").value="";document.getElementById("categoryFilter").value="all";document.getElementById("addForm").classList.remove("active");
+updateCategories();render();
 }
 window.switchLocation=switchLocation;
 
-function toggleForm(){document.getElementById("addForm").classList.toggle("active")}
-window.toggleForm=toggleForm;
+function startListeners(){
+if(unsubscribeWarehouse)unsubscribeWarehouse();if(unsubscribeHome)unsubscribeHome();
+unsubscribeWarehouse=onValue(ref(db,"products"),snapshot=>{
+const data=snapshot.val()||{};warehouseProducts=Object.entries(data).map(([id,product])=>({id,...product,location:"Склад",locationKey:"warehouse"}));render();
+});
+unsubscribeHome=onValue(ref(db,"homeProducts"),snapshot=>{
+const data=snapshot.val()||{};homeProducts=Object.entries(data).map(([id,product])=>({id,...product,location:"Дім",locationKey:"home"}));render();
+});
+}
+function toggleForm(){document.getElementById("addForm").classList.toggle("active")}window.toggleForm=toggleForm;
 
 async function addProduct(){
-  const name=document.getElementById("name").value.trim();
-  const category=document.getElementById("category").value;
-  const quantity=Number(document.getElementById("quantity").value);
-  const unit=document.getElementById("unit").value.trim()||"шт";
-  const minimum=Number(document.getElementById("minimum").value);
-
-  if(!name){alert("Введи назву товару");return}
-  if(quantity<0||minimum<0||!Number.isFinite(quantity)||!Number.isFinite(minimum)){
-    alert("Кількість і мінімум не можуть бути від'ємними");return;
-  }
-
-  try{
-    const newProductRef=push(getProductsRef());
-    await set(newProductRef,{name,category,quantity,unit,minimum});
-    document.getElementById("name").value="";
-    document.getElementById("quantity").value="";
-    document.getElementById("unit").value="";
-    document.getElementById("minimum").value="";
-    toggleForm();
-  }catch(error){
-    console.error(error);
-    alert("Не вдалося зберегти товар.");
-  }
+const name=document.getElementById("name").value.trim(),category=document.getElementById("category").value,quantity=Number(document.getElementById("quantity").value),unit=document.getElementById("unit").value.trim()||"шт",minimum=Number(document.getElementById("minimum").value);
+if(!name){alert("Введи назву товару");return}
+if(quantity<0||minimum<0||!Number.isFinite(quantity)||!Number.isFinite(minimum)){alert("Кількість і мінімум не можуть бути від'ємними");return}
+try{
+const newProductRef=push(ref(db,locationPaths[currentLocation]));await set(newProductRef,{name,category,quantity,unit,minimum});
+document.getElementById("name").value="";document.getElementById("quantity").value="";document.getElementById("unit").value="";document.getElementById("minimum").value="";toggleForm();
+}catch(error){console.error(error);alert("Не вдалося зберегти товар.")}
 }
 window.addProduct=addProduct;
 
-async function changeQuantity(id,amount){
-  const product=products.find(p=>p.id===id);
-  if(!product)return;
-  const current=Number(product.quantity)||0;
-  const newQuantity=Math.max(0,current+amount);
-  try{
-    await set(ref(db,locationPaths[currentLocation]+"/"+id+"/quantity"),newQuantity);
-  }catch(error){
-    console.error("Помилка зміни кількості:",error);
-    alert("Не вдалося змінити кількість. Перевір підключення до Firebase.");
-  }
+async function changeQuantity(id,amount,locationKey=currentLocation){
+const source=locationKey==="warehouse"?warehouseProducts:homeProducts;const product=source.find(p=>p.id===id);if(!product)return;
+const newQuantity=Math.max(0,(Number(product.quantity)||0)+amount);
+try{await set(ref(db,locationPaths[locationKey]+"/"+id+"/quantity"),newQuantity)}
+catch(error){console.error(error);alert("Не вдалося змінити кількість. Перевір підключення до Firebase.")}
 }
 window.changeQuantity=changeQuantity;
 
-async function deleteProduct(id){
-  if(!confirm("Видалити цей товар?"))return;
-  try{
-    await remove(ref(db,locationPaths[currentLocation]+"/"+id));
-  }catch(error){
-    console.error(error);
-    alert("Не вдалося видалити товар.");
-  }
+async function deleteProduct(id,locationKey=currentLocation){
+if(!confirm("Видалити цей товар?"))return;
+try{await remove(ref(db,locationPaths[locationKey]+"/"+id))}
+catch(error){console.error(error);alert("Не вдалося видалити товар.")}
 }
 window.deleteProduct=deleteProduct;
 
 function render(){
-  const container=document.getElementById("products");
-  const search=document.getElementById("search").value.toLowerCase();
-  const category=document.getElementById("categoryFilter").value;
-  const filtered=products.filter(product=>{
-    return (product.name||"").toLowerCase().includes(search)&&(category==="all"||product.category===category);
-  });
-
-  container.innerHTML="";
-  filtered.forEach(product=>{
-    const isLow=Number(product.quantity)<=Number(product.minimum);
-    const element=document.createElement("div");
-    element.className="product";
-
-    const info=document.createElement("div");
-    info.className="product-info";
-    const title=document.createElement("h3");
-    title.textContent=product.name;
-    const categoryEl=document.createElement("div");
-    categoryEl.className="category";
-    categoryEl.textContent=product.category;
-    const status=document.createElement("div");
-    status.className=isLow?"low":"";
-    status.textContent=isLow?"⚠️ Мало запасу":"";
-    info.append(title,categoryEl,status);
-
-    const controls=document.createElement("div");
-    controls.className="controls";
-
-    const minus=document.createElement("button");
-    minus.type="button";minus.textContent="−";
-    minus.addEventListener("click",()=>changeQuantity(product.id,-1));
-
-    const quantity=document.createElement("div");
-    quantity.className="quantity";
-    quantity.textContent=`${product.quantity} ${product.unit}`;
-
-    const plus=document.createElement("button");
-    plus.type="button";plus.textContent="+";
-    plus.addEventListener("click",()=>changeQuantity(product.id,1));
-
-    const del=document.createElement("button");
-    del.type="button";del.className="delete";del.textContent="🗑";
-    del.addEventListener("click",()=>deleteProduct(product.id));
-
-    controls.append(minus,quantity,plus,del);
-    element.append(info,controls);
-    container.appendChild(element);
-  });
-
-  document.getElementById("productCount").textContent=products.length;
-  document.getElementById("lowCount").textContent=products.filter(p=>Number(p.quantity)<=Number(p.minimum)).length;
+const container=document.getElementById("products"),search=document.getElementById("search").value.trim().toLowerCase(),category=document.getElementById("categoryFilter").value;
+const searching=search.length>0;
+let source=searching?[...warehouseProducts,...homeProducts]:(currentLocation==="warehouse"?warehouseProducts:homeProducts);
+const filtered=source.filter(product=>(product.name||"").toLowerCase().includes(search)&&(category==="all"||product.category===category));
+container.innerHTML="";
+filtered.forEach(product=>{
+const isLow=Number(product.quantity)<=Number(product.minimum),element=document.createElement("div");element.className="product";
+const info=document.createElement("div");info.className="product-info";
+const title=document.createElement("h3");title.textContent=product.name;
+const categoryEl=document.createElement("div");categoryEl.className="category";categoryEl.textContent=product.category;
+const locationEl=document.createElement("div");locationEl.className="location";locationEl.textContent="📍 "+product.location;
+const status=document.createElement("div");status.className=isLow?"low":"";status.textContent=isLow?"⚠️ Мало запасу":"";
+info.append(title,categoryEl,locationEl,status);
+const controls=document.createElement("div");controls.className="controls";
+const minus=document.createElement("button");minus.type="button";minus.textContent="−";minus.addEventListener("click",()=>changeQuantity(product.id,-1,product.locationKey));
+const quantity=document.createElement("div");quantity.className="quantity";quantity.textContent=product.quantity+" "+product.unit;
+const plus=document.createElement("button");plus.type="button";plus.textContent="+";plus.addEventListener("click",()=>changeQuantity(product.id,1,product.locationKey));
+const del=document.createElement("button");del.type="button";del.className="delete";del.textContent="🗑";del.addEventListener("click",()=>deleteProduct(product.id,product.locationKey));
+controls.append(minus,quantity,plus,del);element.append(info,controls);container.appendChild(element);
+});
+const current=searching?[...warehouseProducts,...homeProducts]:(currentLocation==="warehouse"?warehouseProducts:homeProducts);
+document.getElementById("productCount").textContent=current.length;
+document.getElementById("lowCount").textContent=current.filter(p=>Number(p.quantity)<=Number(p.minimum)).length;
 }
 window.render=render;
-
-switchLocation("warehouse");
+updateCategories();startListeners();switchLocation("warehouse");
 </script>
 </body>
 </html>
