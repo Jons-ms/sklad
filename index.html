@@ -58,15 +58,7 @@ button:hover{opacity:.85}
 </div>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import {
-  getDatabase,
-  ref,
-  push,
-  set,
-  onValue,
-  remove,
-  runTransaction
-} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+import { getDatabase, ref, push, set, onValue, remove } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDe6jj7XQctQvIsoWJyBvKl3TQ5wy14CCU",
@@ -81,12 +73,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const productsRef = ref(db, "products");
-
 let products = [];
 
-function toggleForm(){
-  document.getElementById("addForm").classList.toggle("active");
-}
+function toggleForm(){ document.getElementById("addForm").classList.toggle("active"); }
 window.toggleForm = toggleForm;
 
 async function addProduct(){
@@ -102,43 +91,53 @@ async function addProduct(){
     return;
   }
 
-  const newProductRef = push(productsRef);
-  await set(newProductRef,{name,category,quantity,unit,minimum});
-
-  document.getElementById("name").value="";
-  document.getElementById("quantity").value="";
-  document.getElementById("unit").value="";
-  document.getElementById("minimum").value="";
-  toggleForm();
+  try{
+    const newProductRef=push(productsRef);
+    await set(newProductRef,{name,category,quantity,unit,minimum});
+    document.getElementById("name").value="";
+    document.getElementById("quantity").value="";
+    document.getElementById("unit").value="";
+    document.getElementById("minimum").value="";
+    toggleForm();
+  }catch(error){
+    console.error(error);
+    alert("Не вдалося зберегти товар.");
+  }
 }
-window.addProduct = addProduct;
+window.addProduct=addProduct;
 
 async function changeQuantity(id,amount){
-  const quantityRef = ref(db, "products/" + id + "/quantity");
+  const product=products.find(p=>p.id===id);
+  if(!product) return;
 
-  try {
-    await runTransaction(quantityRef, currentQuantity => {
-      const current = Number(currentQuantity) || 0;
-      return Math.max(0, current + amount);
-    });
-  } catch (error) {
-    console.error("Помилка зміни кількості:", error);
+  const current=Number(product.quantity)||0;
+  const newQuantity=Math.max(0,current+amount);
+  const quantityRef=ref(db,"products/"+id+"/quantity");
+
+  try{
+    await set(quantityRef,newQuantity);
+  }catch(error){
+    console.error("Помилка зміни кількості:",error);
     alert("Не вдалося змінити кількість. Перевір підключення до Firebase.");
   }
 }
-window.changeQuantity = changeQuantity;
+window.changeQuantity=changeQuantity;
 
 async function deleteProduct(id){
   if(!confirm("Видалити цей товар?")) return;
-  await remove(ref(db, "products/" + id));
+  try{
+    await remove(ref(db,"products/"+id));
+  }catch(error){
+    console.error(error);
+    alert("Не вдалося видалити товар.");
+  }
 }
-window.deleteProduct = deleteProduct;
+window.deleteProduct=deleteProduct;
 
 function render(){
   const container=document.getElementById("products");
   const search=document.getElementById("search").value.toLowerCase();
   const category=document.getElementById("categoryFilter").value;
-
   const filtered=products.filter(product=>{
     const matchesSearch=(product.name||"").toLowerCase().includes(search);
     const matchesCategory=category==="all"||product.category===category;
@@ -146,7 +145,6 @@ function render(){
   });
 
   container.innerHTML="";
-
   filtered.forEach(product=>{
     const isLow=Number(product.quantity)<=Number(product.minimum);
     const element=document.createElement("div");
@@ -154,39 +152,38 @@ function render(){
 
     const info=document.createElement("div");
     info.className="product-info";
-
     const title=document.createElement("h3");
     title.textContent=product.name;
-
     const categoryEl=document.createElement("div");
     categoryEl.className="category";
     categoryEl.textContent=product.category;
-
     const status=document.createElement("div");
     status.className=isLow?"low":"";
     status.textContent=isLow?"⚠️ Мало запасу":"";
-
     info.append(title,categoryEl,status);
 
     const controls=document.createElement("div");
     controls.className="controls";
 
     const minus=document.createElement("button");
+    minus.type="button";
     minus.textContent="−";
-    minus.onclick=()=>changeQuantity(product.id,-1);
+    minus.addEventListener("click",()=>changeQuantity(product.id,-1));
 
     const quantity=document.createElement("div");
     quantity.className="quantity";
     quantity.textContent=`${product.quantity} ${product.unit}`;
 
     const plus=document.createElement("button");
+    plus.type="button";
     plus.textContent="+";
-    plus.onclick=()=>changeQuantity(product.id,1);
+    plus.addEventListener("click",()=>changeQuantity(product.id,1));
 
     const del=document.createElement("button");
+    del.type="button";
     del.className="delete";
     del.textContent="🗑";
-    del.onclick=()=>deleteProduct(product.id);
+    del.addEventListener("click",()=>deleteProduct(product.id));
 
     controls.append(minus,quantity,plus,del);
     element.append(info,controls);
@@ -194,12 +191,11 @@ function render(){
   });
 
   document.getElementById("productCount").textContent=products.length;
-  document.getElementById("lowCount").textContent=
-    products.filter(p=>Number(p.quantity)<=Number(p.minimum)).length;
+  document.getElementById("lowCount").textContent=products.filter(p=>Number(p.quantity)<=Number(p.minimum)).length;
 }
-window.render = render;
+window.render=render;
 
-onValue(productsRef, snapshot=>{
+onValue(productsRef,snapshot=>{
   const data=snapshot.val()||{};
   products=Object.entries(data).map(([id,product])=>({id,...product}));
   render();
