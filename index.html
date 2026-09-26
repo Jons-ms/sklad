@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Мій склад</title>
+<title>Інвентар</title>
 <style>
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f5f5f7;color:#222}
@@ -28,12 +28,12 @@ button:hover{opacity:.85}
 </head>
 <body>
 <div class="container">
-<h1>📦 Мій склад</h1>
-<div class="subtitle">Облік запасів</div>
+<h1>📦 Інвентар</h1>
+<div class="subtitle">Запаси</div>
 <div class="top">
 <input id="search" class="search" placeholder="🔍 Пошук товару..." oninput="render()">
 <select id="categoryFilter" onchange="render()">
-<option value="all">Усі категорії</option><option value="Продукти">Продукти</option><option value="Побутова хімія">Побутова хімія</option><option value="Гігієна">Гігієна</option><option value="Господарське">Господарське</option><option value="Інше">Інше</option>
+<option value="all">Усі категорії</option><option value="Продукти">Продукти</option><option value="Побутова хімія">Побутова хімія</option><option value="Інструменти">Інструменти</option><option value="Закрутки">Закрутки</option><option value="Інше">Інше</option>
 </select>
 <button onclick="toggleForm()">＋ Додати</button>
 </div>
@@ -41,7 +41,7 @@ button:hover{opacity:.85}
 <h2>Новий товар</h2>
 <div class="form-row">
 <input id="name" placeholder="Назва товару">
-<select id="category"><option>Продукти</option><option>Побутова хімія</option><option>Гігієна</option><option>Господарське</option><option>Інше</option></select>
+<select id="category"><option>Продукти</option><option>Побутова хімія</option><option>Інструменти</option><option>Закрутки</option><option>Інше</option></select>
 </div>
 <div class="form-row">
 <input id="quantity" type="number" min="0" placeholder="Кількість">
