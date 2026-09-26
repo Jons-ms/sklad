@@ -153,24 +153,68 @@ function toggleForm(){document.getElementById("addForm").classList.toggle("activ
 
 function getUserName(){return localStorage.getItem("skladchykUserName")||"Користувач";}
 function formatHistoryTime(timestamp){return new Date(timestamp).toLocaleString("uk-UA",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});}
+const pendingQuantityHistory=new Map();
+const HISTORY_GROUP_DELAY=700;
+
+async function writeQuantityHistory(productName,location,details,delta,user){
+  try{
+    const newRef=push(ref(db,"history"));
+    await set(newRef,{
+      type:"quantity",
+      action:"Зміна кількості",
+      productName,
+      location,
+      details,
+      user,
+      timestamp:Date.now(),
+      delta:Number(delta)
+    });
+  }catch(error){console.error("History error:",error);}
+}
+
+function queueQuantityHistory(productName,location,details,delta){
+  const user=getUserName();
+  const key=productName+"|"+location+"|"+user;
+  const existing=pendingQuantityHistory.get(key);
+  const match=String(details||"").match(/^(.*?) → (.*)$/);
+  const before=match?match[1]:String(details||"");
+  const after=match?match[2]:String(details||"");
+
+  if(existing){
+    existing.delta+=Number(delta)||0;
+    existing.after=after;
+    clearTimeout(existing.timer);
+  }else{
+    pendingQuantityHistory.set(key,{productName,location,user,delta:Number(delta)||0,before,after,timer:null});
+  }
+
+  const pending=pendingQuantityHistory.get(key);
+  pending.timer=setTimeout(async()=>{
+    pendingQuantityHistory.delete(key);
+    if(!pending.delta)return;
+    const sign=pending.delta>0?"+":"";
+    await writeQuantityHistory(
+      pending.productName,
+      pending.location,
+      pending.before+" → "+pending.after,
+      pending.delta,
+      pending.user
+    );
+  },HISTORY_GROUP_DELAY);
+}
+
 async function addHistory(action,productName,location,details,delta=0){
   try{
-    const user=getUserName();
-    const now=Date.now();
-    const newRef=push(ref(db,"history"));
     if(action==="Додано"||action==="Віднято"){
-      await set(newRef,{
-        type:"quantity",
-        action:"Зміна кількості",
-        productName,
-        location,
-        details,
-        user,
-        timestamp:now,
-        delta:Number(delta)
-      });
+      if(Number(delta)!==0){
+        queueQuantityHistory(productName,location,details,delta);
+      }else{
+        await writeQuantityHistory(productName,location,details,0,getUserName());
+      }
     }else{
-      await set(newRef,{type:"event",action,productName,location,details,user,timestamp:now});
+      const user=getUserName();
+      const newRef=push(ref(db,"history"));
+      await set(newRef,{type:"event",action,productName,location,details,user,timestamp:Date.now()});
     }
   }catch(error){console.error("History error:",error);}
 }
