@@ -196,8 +196,7 @@ window.deleteProduct=deleteProduct;
 
 function render(){
 const container=document.getElementById("products"),search=document.getElementById("search").value.trim().toLowerCase(),category=document.getElementById("categoryFilter").value;
-const searching=search.length>0;
-let source=searching?[...warehouseProducts,...homeProducts]:(currentLocation==="warehouse"?warehouseProducts:homeProducts);
+const source=currentLocation==="warehouse"?warehouseProducts:homeProducts;
 const filtered=source.filter(product=>(product.name||"").toLowerCase().includes(search)&&(category==="all"||product.category===category));
 container.innerHTML="";
 filtered.forEach(product=>{
@@ -207,8 +206,7 @@ const isZero=quantityValue===0,isMinimum=!isZero&&quantityValue===minimumValue,e
 const info=document.createElement("div");info.className="product-info";
 const title=document.createElement("h3");title.textContent=product.name;
 const categoryEl=document.createElement("div");categoryEl.className="category";categoryEl.textContent=product.category;
-const locationEl=document.createElement("div");locationEl.className="location";locationEl.textContent="📍 "+product.location;
-if(!searching)locationEl.style.display="none";
+const locationEl=document.createElement("div");locationEl.className="location";locationEl.textContent="📍 "+product.location;locationEl.style.display="none";
 const status=document.createElement("span");
 if(isZero){status.className="zero-indicator";status.title="Товар закінчився";}
 else if(isMinimum){status.className="minimum-indicator";status.title="Мінімальний рівень";}
@@ -220,9 +218,8 @@ const plus=document.createElement("button");plus.type="button";plus.textContent=
 const del=document.createElement("button");del.type="button";del.className="delete";del.textContent="🗑";del.addEventListener("click",()=>deleteProduct(product.id,product.locationKey));
 controls.append(minus,quantity,plus,del);element.append(info,controls);container.appendChild(element);
 });
-const current=searching?[...warehouseProducts,...homeProducts]:(currentLocation==="warehouse"?warehouseProducts:homeProducts);
-document.getElementById("productCount").textContent=current.length;
-document.getElementById("lowCount").textContent=current.filter(p=>Number(p.quantity)<=Number(p.minimum)).length;
+document.getElementById("productCount").textContent=source.length;
+document.getElementById("lowCount").textContent=source.filter(p=>Number(p.quantity)<=Number(p.minimum)).length;
 }
 window.render=render;
 updateCategories();startListeners();switchLocation("warehouse");
