@@ -156,58 +156,66 @@ function formatHistoryTime(timestamp){return new Date(timestamp).toLocaleString(
 const pendingQuantityHistory=new Map();
 const HISTORY_GROUP_DELAY=60000;
 
-async function writeQuantityHistory(productName,location,details,delta,user){
-  try{
-    const newRef=push(ref(db,"history"));
-    await set(newRef,{
+function queueQuantityHistory(productId,productName,location,details,delta){
+  const user=getUserName();
+  const key=productId+"|"+location+"|"+user;
+  const match=String(details||"").match(/^(.*?) → (.*)$/);
+  const before=match?match[1]:String(details||"");
+  const after=match?match[2]:String(details||"");
+  const numericDelta=Number(delta)||0;
+  const existing=pendingQuantityHistory.get(key);
+
+  if(existing){
+    existing.delta+=numericDelta;
+    existing.after=after;
+    clearTimeout(existing.timer);
+    set(existing.ref,{
+      type:"quantity",
+      action:"Зміна кількості",
+      productName:existing.productName,
+      location:existing.location,
+      details:existing.before+" → "+existing.after,
+      user:existing.user,
+      timestamp:existing.timestamp,
+      delta:existing.delta
+    }).catch(error=>console.error("History update error:",error));
+  }else{
+    const historyRef=push(ref(db,"history"));
+    const pending={
+      ref:historyRef,
+      productName,
+      location,
+      user,
+      before,
+      after,
+      delta:numericDelta,
+      timestamp:Date.now(),
+      timer:null
+    };
+    pendingQuantityHistory.set(key,pending);
+    set(historyRef,{
       type:"quantity",
       action:"Зміна кількості",
       productName,
       location,
-      details,
+      details:before+" → "+after,
       user,
-      timestamp:Date.now(),
-      delta:Number(delta)
-    });
-  }catch(error){console.error("History error:",error);}
-}
-
-function queueQuantityHistory(productName,location,details,delta){
-  const user=getUserName();
-  const key=productName+"|"+location+"|"+user;
-  const existing=pendingQuantityHistory.get(key);
-  const match=String(details||"").match(/^(.*?) → (.*)$/);
-  const before=match?match[1]:String(details||"");
-  const after=match?match[2]:String(details||"");
-
-  if(existing){
-    existing.delta+=Number(delta)||0;
-    existing.after=after;
-    clearTimeout(existing.timer);
-  }else{
-    pendingQuantityHistory.set(key,{productName,location,user,delta:Number(delta)||0,before,after,timer:null});
+      timestamp:pending.timestamp,
+      delta:numericDelta
+    }).catch(error=>console.error("History error:",error));
   }
 
   const pending=pendingQuantityHistory.get(key);
-  pending.timer=setTimeout(async()=>{
+  pending.timer=setTimeout(()=>{
     pendingQuantityHistory.delete(key);
-    if(!pending.delta)return;
-    const sign=pending.delta>0?"+":"";
-    await writeQuantityHistory(
-      pending.productName,
-      pending.location,
-      pending.before+" → "+pending.after,
-      pending.delta,
-      pending.user
-    );
   },HISTORY_GROUP_DELAY);
 }
 
-async function addHistory(action,productName,location,details,delta=0){
+async function addHistory(action,productName,location,details,delta=0,productId=null){
   try{
     if(action==="Додано"||action==="Віднято"){
       if(Number(delta)!==0){
-        queueQuantityHistory(productName,location,details,delta);
+        queueQuantityHistory(productId||productName,productName,location,details,delta);
       }else{
         await writeQuantityHistory(productName,location,details,0,getUserName());
       }
@@ -251,7 +259,7 @@ try{
     newQuantity=Math.max(0,beforeQuantity+amount);
     return newQuantity;
   });
-  await addHistory(amount>0?"Додано":"Віднято",product.name,locationKey==="warehouse"?"Склад":"Дім",beforeQuantity+" → "+newQuantity+" "+product.unit,newQuantity-beforeQuantity);
+  await addHistory(amount>0?"Додано":"Віднято",product.name,locationKey==="warehouse"?"Склад":"Дім",beforeQuantity+" → "+newQuantity+" "+product.unit,newQuantity-beforeQuantity,id);
 }catch(error){console.error(error);alert("Не вдалося змінити кількість. Перевір підключення до Firebase.")}
 }
 window.changeQuantity=changeQuantity;
