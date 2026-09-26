@@ -24,6 +24,25 @@ button:hover{opacity:.85}
 .quantity{font-size:22px;font-weight:bold}.low{color:#d35400}
 .controls{display:flex;gap:7px;align-items:center}.controls button{width:42px;height:42px;padding:0}
 .delete{background:#c0392b}
+.more-button{width:48px;padding:12px 0}
+.zero-indicator{display:inline-block;width:9px;height:9px;background:#e53935;border-radius:50%;margin-left:7px;vertical-align:middle}
+.more-panel{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:flex-end;justify-content:center;z-index:20}
+.more-panel.active{display:flex}
+.more-card{background:#fff;width:min(560px,100%);max-height:82vh;overflow:auto;border-radius:22px 22px 0 0;padding:20px}
+.more-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}
+.more-header h2{margin:0}
+.icon-button{background:#eee;color:#222;width:40px;height:40px;padding:0}
+.more-item{width:100%;background:#f7f7f8;color:#222;text-align:left;margin-bottom:10px}
+.more-section{display:none}
+.more-section.active{display:block}
+.back-button{background:#eee;color:#222;margin-bottom:15px}
+.history-item{padding:12px 0;border-bottom:1px solid #eee}
+.history-item:last-child{border-bottom:0}
+.history-main{font-weight:600}
+.history-meta{font-size:13px;color:#777;margin-top:3px}
+.user-row{display:flex;gap:10px}
+.user-row input{flex:1}
+.empty{color:#777;text-align:center;padding:25px}
 .add-form{background:#fff;padding:20px;border-radius:15px;margin-bottom:20px;display:none}
 .add-form.active{display:block}.form-row{display:flex;gap:10px;margin-bottom:10px}
 .form-row>*{flex:1;min-width:0}
@@ -45,7 +64,7 @@ button:hover{opacity:.85}
 <div class="top">
 <input id="search" class="search" placeholder="🔍 Пошук товару..." oninput="render()">
 <select id="categoryFilter" onchange="render()"></select>
-<button onclick="toggleForm()">＋ Додати</button>
+<button onclick="toggleForm()">＋ Додати</button><button class="more-button" onclick="openMore()" aria-label="Більше">⋯</button>
 </div>
 <div id="addForm" class="add-form">
 <h2 id="formTitle">Новий товар — Склад</h2>
@@ -56,12 +75,35 @@ button:hover{opacity:.85}
 <div class="stats"><div class="stat"><strong id="productCount">0</strong>товарів</div><div class="stat"><strong id="lowCount">0</strong>закінчується</div></div>
 <div id="products"></div>
 </div>
+<div id="morePanel" class="more-panel" onclick="closeMore(event)">
+  <div class="more-card" onclick="event.stopPropagation()">
+    <div class="more-header"><h2>Більше</h2><button class="icon-button" onclick="closeMore()">×</button></div>
+    <div id="moreMenu">
+      <button class="more-item" onclick="showMoreSection('history')">📜 Історія змін</button>
+      <button class="more-item" onclick="showMoreSection('user')">👤 Користувач</button>
+    </div>
+    <div id="historySection" class="more-section">
+      <button class="back-button" onclick="backToMore()">← Назад</button>
+      <h3>Історія змін</h3>
+      <div id="historyList"></div>
+    </div>
+    <div id="userSection" class="more-section">
+      <button class="back-button" onclick="backToMore()">← Назад</button>
+      <h3>Користувач</h3>
+      <div class="user-row">
+        <input id="userName" placeholder="Введи ім'я">
+        <button onclick="saveUserName()">Зберегти</button>
+      </div>
+      <p id="userSaved" class="history-meta"></p>
+    </div>
+  </div>
+</div>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import { getDatabase, ref, push, set, onValue, remove } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 const firebaseConfig={apiKey:"AIzaSyDe6jj7XQctQvIsoWJyBvKl3TQ5wy14CCU",authDomain:"scladchyk.firebaseapp.com",databaseURL:"https://scladchyk-default-rtdb.europe-west1.firebasedatabase.app",projectId:"scladchyk",storageBucket:"scladchyk.firebasestorage.app",messagingSenderId:"126345381398",appId:"1:126345381398:web:f3beb86fd859064e58d737"};
 const app=initializeApp(firebaseConfig);const db=getDatabase(app);
-let currentLocation="warehouse",products=[],warehouseProducts=[],homeProducts=[],unsubscribeWarehouse=null,unsubscribeHome=null;
+let currentLocation="warehouse",products=[],warehouseProducts=[],homeProducts=[],unsubscribeWarehouse=null,unsubscribeHome=null,historyEntries=[];
 const locationPaths={warehouse:"products",home:"homeProducts"};
 const warehouseCategories=["Продукти","Побутова хімія","Інструменти","Закрутки","Інше"];
 const homeCategories=["Продукти","Побутова хімія","Інструменти","Інше"];
@@ -86,18 +128,30 @@ if(unsubscribeWarehouse)unsubscribeWarehouse();if(unsubscribeHome)unsubscribeHom
 unsubscribeWarehouse=onValue(ref(db,"products"),snapshot=>{
 const data=snapshot.val()||{};warehouseProducts=Object.entries(data).map(([id,product])=>({id,...product,location:"Склад",locationKey:"warehouse"}));render();
 });
+onValue(ref(db,"history"),snapshot=>{const data=snapshot.val()||{};historyEntries=Object.values(data);if(document.getElementById("historySection").classList.contains("active"))renderHistory();});
 unsubscribeHome=onValue(ref(db,"homeProducts"),snapshot=>{
 const data=snapshot.val()||{};homeProducts=Object.entries(data).map(([id,product])=>({id,...product,location:"Дім",locationKey:"home"}));render();
 });
 }
 function toggleForm(){document.getElementById("addForm").classList.toggle("active")}window.toggleForm=toggleForm;
 
+function getUserName(){return localStorage.getItem("skladchykUserName")||"Користувач";}
+function formatHistoryTime(timestamp){return new Date(timestamp).toLocaleString("uk-UA",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});}
+async function addHistory(action,productName,location,details){try{await push(ref(db,"history"),{action,productName,location,details,user:getUserName(),timestamp:Date.now()});}catch(error){console.error("History error:",error);}}
+function openMore(){document.getElementById("morePanel").classList.add("active");backToMore();}
+function closeMore(event){if(event&&event.target!==event.currentTarget)return;document.getElementById("morePanel").classList.remove("active");}
+function showMoreSection(section){document.getElementById("moreMenu").style.display="none";document.querySelectorAll(".more-section").forEach(el=>el.classList.remove("active"));document.getElementById(section+"Section").classList.add("active");if(section==="history")renderHistory();if(section==="user"){document.getElementById("userName").value=localStorage.getItem("skladchykUserName")||"";document.getElementById("userSaved").textContent=localStorage.getItem("skladchykUserName")?"Поточний користувач: "+localStorage.getItem("skladchykUserName"):"";}}
+function backToMore(){document.getElementById("moreMenu").style.display="block";document.querySelectorAll(".more-section").forEach(el=>el.classList.remove("active"));}
+function saveUserName(){const name=document.getElementById("userName").value.trim();if(!name){alert("Введи ім'я");return;}localStorage.setItem("skladchykUserName",name);document.getElementById("userSaved").textContent="Поточний користувач: "+name;}
+function renderHistory(){const list=document.getElementById("historyList");if(!historyEntries.length){list.innerHTML='<div class="empty">Історія поки порожня.</div>';return;}list.innerHTML="";historyEntries.slice().sort((a,b)=>(b.timestamp||0)-(a.timestamp||0)).forEach(item=>{const row=document.createElement("div");row.className="history-item";const main=document.createElement("div");main.className="history-main";main.textContent=item.productName+" — "+item.action;const meta=document.createElement("div");meta.className="history-meta";meta.textContent=item.details+" · "+item.location+" · "+(item.user||"Користувач")+" · "+formatHistoryTime(item.timestamp||Date.now());row.append(main,meta);list.appendChild(row);});}
+window.openMore=openMore;window.closeMore=closeMore;window.showMoreSection=showMoreSection;window.backToMore=backToMore;window.saveUserName=saveUserName;
+
 async function addProduct(){
 const name=document.getElementById("name").value.trim(),category=document.getElementById("category").value,quantity=Number(document.getElementById("quantity").value),unit=document.getElementById("unit").value.trim()||"шт",minimum=Number(document.getElementById("minimum").value);
 if(!name){alert("Введи назву товару");return}
 if(quantity<0||minimum<0||!Number.isFinite(quantity)||!Number.isFinite(minimum)){alert("Кількість і мінімум не можуть бути від'ємними");return}
 try{
-const newProductRef=push(ref(db,locationPaths[currentLocation]));await set(newProductRef,{name,category,quantity,unit,minimum});
+const newProductRef=push(ref(db,locationPaths[currentLocation]));await set(newProductRef,{name,category,quantity,unit,minimum});await addHistory("Додано",name,currentLocation==="warehouse"?"Склад":"Дім","Кількість: "+quantity+" "+unit);
 document.getElementById("name").value="";document.getElementById("quantity").value="";document.getElementById("unit").value="";document.getElementById("minimum").value="";toggleForm();
 }catch(error){console.error(error);alert("Не вдалося зберегти товар.")}
 }
@@ -106,14 +160,15 @@ window.addProduct=addProduct;
 async function changeQuantity(id,amount,locationKey=currentLocation){
 const source=locationKey==="warehouse"?warehouseProducts:homeProducts;const product=source.find(p=>p.id===id);if(!product)return;
 const newQuantity=Math.max(0,(Number(product.quantity)||0)+amount);
-try{await set(ref(db,locationPaths[locationKey]+"/"+id+"/quantity"),newQuantity)}
+try{await set(ref(db,locationPaths[locationKey]+"/"+id+"/quantity"),newQuantity);await addHistory(amount>0?"Додано":"Віднято",product.name,locationKey==="warehouse"?"Склад":"Дім",(Number(product.quantity)||0)+" → "+newQuantity+" "+product.unit)}
 catch(error){console.error(error);alert("Не вдалося змінити кількість. Перевір підключення до Firebase.")}
 }
 window.changeQuantity=changeQuantity;
 
 async function deleteProduct(id,locationKey=currentLocation){
+const source=locationKey==="warehouse"?warehouseProducts:homeProducts;const product=source.find(p=>p.id===id);if(!product)return;
 if(!confirm("Видалити цей товар?"))return;
-try{await remove(ref(db,locationPaths[locationKey]+"/"+id))}
+try{await addHistory("Видалено",product.name,locationKey==="warehouse"?"Склад":"Дім","Було: "+product.quantity+" "+product.unit);await remove(ref(db,locationPaths[locationKey]+"/"+id))}
 catch(error){console.error(error);alert("Не вдалося видалити товар.")}
 }
 window.deleteProduct=deleteProduct;
@@ -125,14 +180,14 @@ let source=searching?[...warehouseProducts,...homeProducts]:(currentLocation==="
 const filtered=source.filter(product=>(product.name||"").toLowerCase().includes(search)&&(category==="all"||product.category===category));
 container.innerHTML="";
 filtered.forEach(product=>{
-const isLow=Number(product.quantity)<=Number(product.minimum),element=document.createElement("div");element.className="product";
+const isZero=Number(product.quantity)===0,element=document.createElement("div");element.className="product";
 const info=document.createElement("div");info.className="product-info";
 const title=document.createElement("h3");title.textContent=product.name;
 const categoryEl=document.createElement("div");categoryEl.className="category";categoryEl.textContent=product.category;
 const locationEl=document.createElement("div");locationEl.className="location";locationEl.textContent="📍 "+product.location;
 if(!searching)locationEl.style.display="none";
-const status=document.createElement("div");status.className=isLow?"low":"";status.textContent=isLow?"⚠️ Мало запасу":"";
-info.append(title,categoryEl,locationEl,status);
+const status=document.createElement("span");if(isZero){status.className="zero-indicator";status.title="Товар закінчився";}
+title.appendChild(status);info.append(title,categoryEl,locationEl);
 const controls=document.createElement("div");controls.className="controls";
 const minus=document.createElement("button");minus.type="button";minus.textContent="−";minus.addEventListener("click",()=>changeQuantity(product.id,-1,product.locationKey));
 const quantity=document.createElement("div");quantity.className="quantity";quantity.textContent=product.quantity+" "+product.unit;
