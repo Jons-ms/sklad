@@ -128,11 +128,25 @@ window.switchLocation=switchLocation;
 function startListeners(){
 if(unsubscribeWarehouse)unsubscribeWarehouse();if(unsubscribeHome)unsubscribeHome();
 unsubscribeWarehouse=onValue(ref(db,"products"),snapshot=>{
-const data=snapshot.val()||{};warehouseProducts=Object.entries(data).map(([id,product])=>({id,...product,location:"Склад",locationKey:"warehouse"}));render();
+const data=snapshot.val()||{};
+warehouseProducts=Object.entries(data).map(([id,product])=>({id,...product,location:"Склад",locationKey:"warehouse"}));
+render();
+},error=>{
+console.error("Помилка читання Складу:",error);
+alert("Не вдалося завантажити товари зі Складу. Перевір правила доступу Firebase.");
 });
-onValue(ref(db,"history"),snapshot=>{const data=snapshot.val()||{};historyEntries=Object.entries(data).map(([id,item])=>({id,...item}));if(document.getElementById("historySection").classList.contains("active"))renderHistory();});
+onValue(ref(db,"history"),snapshot=>{
+const data=snapshot.val()||{};
+historyEntries=Object.entries(data).map(([id,item])=>({id,...item}));
+if(document.getElementById("historySection").classList.contains("active"))renderHistory();
+},error=>console.error("Помилка читання історії:",error));
 unsubscribeHome=onValue(ref(db,"homeProducts"),snapshot=>{
-const data=snapshot.val()||{};homeProducts=Object.entries(data).map(([id,product])=>({id,...product,location:"Дім",locationKey:"home"}));render();
+const data=snapshot.val()||{};
+homeProducts=Object.entries(data).map(([id,product])=>({id,...product,location:"Дім",locationKey:"home"}));
+render();
+},error=>{
+console.error("Помилка читання Дому:",error);
+alert("Не вдалося завантажити товари з Дому. Перевір правила доступу Firebase.");
 });
 }
 function toggleForm(){document.getElementById("addForm").classList.toggle("active")}window.toggleForm=toggleForm;
@@ -172,7 +186,18 @@ const name=document.getElementById("name").value.trim(),category=document.getEle
 if(!name){alert("Введи назву товару");return}
 if(quantity<0||minimum<0||!Number.isFinite(quantity)||!Number.isFinite(minimum)){alert("Кількість і мінімум не можуть бути від'ємними");return}
 try{
-const newProductRef=push(ref(db,locationPaths[currentLocation]));await set(newProductRef,{name,category,quantity,unit,minimum});await addHistory("Додано",name,currentLocation==="warehouse"?"Склад":"Дім","Кількість: "+quantity+" "+unit);
+const newProductRef=push(ref(db,locationPaths[currentLocation]));
+const newProduct={id:newProductRef.key,name,category,quantity,unit,minimum,location:currentLocation==="warehouse"?"Склад":"Дім",locationKey:currentLocation};
+await set(newProductRef,{name,category,quantity,unit,minimum});
+
+if(currentLocation==="warehouse"){
+warehouseProducts=[...warehouseProducts,newProduct];
+}else{
+homeProducts=[...homeProducts,newProduct];
+}
+render();
+
+await addHistory("Додано",name,currentLocation==="warehouse"?"Склад":"Дім","Кількість: "+quantity+" "+unit);
 document.getElementById("name").value="";document.getElementById("quantity").value="";document.getElementById("unit").value="";document.getElementById("minimum").value="";toggleForm();
 }catch(error){console.error("Помилка додавання товару:",error);const message=error?.code==="PERMISSION_DENIED"?"Firebase не дозволив запис. Перевір правила Realtime Database.":"Не вдалося зберегти товар. Код: "+(error?.code||"невідома помилка");alert(message)}
 }
