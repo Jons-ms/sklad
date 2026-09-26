@@ -190,12 +190,8 @@ const newProductRef=push(ref(db,locationPaths[currentLocation]));
 const newProduct={id:newProductRef.key,name,category,quantity,unit,minimum,location:currentLocation==="warehouse"?"Склад":"Дім",locationKey:currentLocation};
 await set(newProductRef,{name,category,quantity,unit,minimum});
 
-if(currentLocation==="warehouse"){
-warehouseProducts=[...warehouseProducts,newProduct];
-}else{
-homeProducts=[...homeProducts,newProduct];
-}
-render();
+// Firebase onValue() є єдиним джерелом актуального списку.
+// Не додаємо товар вручну в локальний масив, щоб він не дублювався.
 
 await addHistory("Додано",name,currentLocation==="warehouse"?"Склад":"Дім","Кількість: "+quantity+" "+unit);
 document.getElementById("name").value="";document.getElementById("quantity").value="";document.getElementById("unit").value="";document.getElementById("minimum").value="";toggleForm();
