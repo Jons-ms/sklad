@@ -26,6 +26,8 @@ button:hover{opacity:.85}
 .delete{background:#c0392b}
 .more-button{width:48px;padding:12px 0}
 .zero-indicator{display:inline-block;width:9px;height:9px;background:#e53935;border-radius:50%;margin-left:7px;vertical-align:middle}
+.minimum-indicator{display:inline-block;width:9px;height:9px;background:#f4c542;border-radius:50%;margin-left:7px;vertical-align:middle}
+.controls button{user-select:none;-webkit-user-select:none;touch-action:none}
 .more-panel{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:flex-end;justify-content:center;z-index:20}
 .more-panel.active{display:flex}
 .more-card{background:#fff;width:min(560px,100%);max-height:82vh;overflow:auto;border-radius:22px 22px 0 0;padding:20px}
@@ -199,18 +201,22 @@ let source=searching?[...warehouseProducts,...homeProducts]:(currentLocation==="
 const filtered=source.filter(product=>(product.name||"").toLowerCase().includes(search)&&(category==="all"||product.category===category));
 container.innerHTML="";
 filtered.forEach(product=>{
-const isZero=Number(product.quantity)===0,element=document.createElement("div");element.className="product";
+const quantityValue=Number(product.quantity)||0;
+const minimumValue=Number(product.minimum)||0;
+const isZero=quantityValue===0,isMinimum=!isZero&&quantityValue===minimumValue,element=document.createElement("div");element.className="product";
 const info=document.createElement("div");info.className="product-info";
 const title=document.createElement("h3");title.textContent=product.name;
 const categoryEl=document.createElement("div");categoryEl.className="category";categoryEl.textContent=product.category;
 const locationEl=document.createElement("div");locationEl.className="location";locationEl.textContent="📍 "+product.location;
 if(!searching)locationEl.style.display="none";
-const status=document.createElement("span");if(isZero){status.className="zero-indicator";status.title="Товар закінчився";}
+const status=document.createElement("span");
+if(isZero){status.className="zero-indicator";status.title="Товар закінчився";}
+else if(isMinimum){status.className="minimum-indicator";status.title="Мінімальний рівень";}
 title.appendChild(status);info.append(title,categoryEl,locationEl);
 const controls=document.createElement("div");controls.className="controls";
-const minus=document.createElement("button");minus.type="button";minus.textContent="−";minus.addEventListener("click",()=>changeQuantity(product.id,-1,product.locationKey));
+const minus=document.createElement("button");minus.type="button";minus.textContent="−";addQuantityLongPress(minus,()=>changeQuantity(product.id,-1,product.locationKey));
 const quantity=document.createElement("div");quantity.className="quantity";quantity.textContent=product.quantity+" "+product.unit;
-const plus=document.createElement("button");plus.type="button";plus.textContent="+";plus.addEventListener("click",()=>changeQuantity(product.id,1,product.locationKey));
+const plus=document.createElement("button");plus.type="button";plus.textContent="+";addQuantityLongPress(plus,()=>changeQuantity(product.id,1,product.locationKey));
 const del=document.createElement("button");del.type="button";del.className="delete";del.textContent="🗑";del.addEventListener("click",()=>deleteProduct(product.id,product.locationKey));
 controls.append(minus,quantity,plus,del);element.append(info,controls);container.appendChild(element);
 });
