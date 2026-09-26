@@ -56,57 +56,150 @@ button:hover{opacity:.85}
 </div>
 <div id="products"></div>
 </div>
-<script>
-let products=JSON.parse(localStorage.getItem("warehouse"))||[];
-function save(){localStorage.setItem("warehouse",JSON.stringify(products))}
-function toggleForm(){document.getElementById("addForm").classList.toggle("active")}
-function addProduct(){
-const name=document.getElementById("name").value.trim();
-const category=document.getElementById("category").value;
-const quantity=Number(document.getElementById("quantity").value);
-const unit=document.getElementById("unit").value.trim()||"шт";
-const minimum=Number(document.getElementById("minimum").value);
-if(!name){alert("Введи назву товару");return}
-products.push({id:Date.now(),name,category,quantity,unit,minimum});
-save();
-document.getElementById("name").value="";
-document.getElementById("quantity").value="";
-document.getElementById("unit").value="";
-document.getElementById("minimum").value="";
-toggleForm();render();
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+import {
+  getDatabase,
+  ref,
+  push,
+  set,
+  onValue,
+  remove,
+  runTransaction
+} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "REPLACE_WITH_YOUR_FIREBASE_API_KEY",
+  authDomain: "scladchyk.firebaseapp.com",
+  databaseURL: "https://scladchyk-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "scladchyk",
+  storageBucket: "scladchyk.firebasestorage.app",
+  messagingSenderId: "126345381398",
+  appId: "1:126345381398:web:f3beb86fd859064e58d737"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const productsRef = ref(db, "products");
+
+let products = [];
+
+function toggleForm(){
+  document.getElementById("addForm").classList.toggle("active");
 }
-function changeQuantity(id,amount){
-const product=products.find(p=>p.id===id);if(!product)return;
-product.quantity+=amount;if(product.quantity<0)product.quantity=0;
-save();render();
+window.toggleForm = toggleForm;
+
+async function addProduct(){
+  const name=document.getElementById("name").value.trim();
+  const category=document.getElementById("category").value;
+  const quantity=Number(document.getElementById("quantity").value);
+  const unit=document.getElementById("unit").value.trim()||"шт";
+  const minimum=Number(document.getElementById("minimum").value);
+
+  if(!name){alert("Введи назву товару");return}
+  if(quantity<0 || minimum<0 || !Number.isFinite(quantity) || !Number.isFinite(minimum)){
+    alert("Кількість і мінімум не можуть бути від'ємними");
+    return;
+  }
+
+  const newProductRef = push(productsRef);
+  await set(newProductRef,{name,category,quantity,unit,minimum});
+
+  document.getElementById("name").value="";
+  document.getElementById("quantity").value="";
+  document.getElementById("unit").value="";
+  document.getElementById("minimum").value="";
+  toggleForm();
 }
-function deleteProduct(id){
-if(!confirm("Видалити цей товар?"))return;
-products=products.filter(p=>p.id!==id);save();render();
+window.addProduct = addProduct;
+
+async function changeQuantity(id,amount){
+  const productRef = ref(db, "products/" + id);
+  await runTransaction(product => {
+    if(product === null) return product;
+    const currentQuantity = Number(product.quantity) || 0;
+    product.quantity = Math.max(0, currentQuantity + amount);
+    return product;
+  });
 }
+window.changeQuantity = changeQuantity;
+
+async function deleteProduct(id){
+  if(!confirm("Видалити цей товар?")) return;
+  await remove(ref(db, "products/" + id));
+}
+window.deleteProduct = deleteProduct;
+
 function render(){
-const container=document.getElementById("products");
-const search=document.getElementById("search").value.toLowerCase();
-const category=document.getElementById("categoryFilter").value;
-const filtered=products.filter(product=>{
-const matchesSearch=product.name.toLowerCase().includes(search);
-const matchesCategory=category==="all"||product.category===category;
-return matchesSearch&&matchesCategory;
-});
-container.innerHTML="";
-filtered.forEach(product=>{
-const isLow=product.quantity<=product.minimum;
-const element=document.createElement("div");
-element.className="product";
-element.innerHTML=`
-<div class="product-info"><h3>${product.name}</h3><div class="category">${product.category}</div><div class="${isLow?"low":""}">${isLow?"⚠️ Мало запасу":""}</div></div>
-<div class="controls"><button onclick="changeQuantity(${product.id},-1)">−</button><div class="quantity">${product.quantity} ${product.unit}</div><button onclick="changeQuantity(${product.id},1)">+</button><button class="delete" onclick="deleteProduct(${product.id})">🗑</button></div>`;
-container.appendChild(element);
-});
-document.getElementById("productCount").textContent=products.length;
-document.getElementById("lowCount").textContent=products.filter(p=>p.quantity<=p.minimum).length;
+  const container=document.getElementById("products");
+  const search=document.getElementById("search").value.toLowerCase();
+  const category=document.getElementById("categoryFilter").value;
+
+  const filtered=products.filter(product=>{
+    const matchesSearch=(product.name||"").toLowerCase().includes(search);
+    const matchesCategory=category==="all"||product.category===category;
+    return matchesSearch&&matchesCategory;
+  });
+
+  container.innerHTML="";
+
+  filtered.forEach(product=>{
+    const isLow=Number(product.quantity)<=Number(product.minimum);
+    const element=document.createElement("div");
+    element.className="product";
+
+    const info=document.createElement("div");
+    info.className="product-info";
+
+    const title=document.createElement("h3");
+    title.textContent=product.name;
+
+    const categoryEl=document.createElement("div");
+    categoryEl.className="category";
+    categoryEl.textContent=product.category;
+
+    const status=document.createElement("div");
+    status.className=isLow?"low":"";
+    status.textContent=isLow?"⚠️ Мало запасу":"";
+
+    info.append(title,categoryEl,status);
+
+    const controls=document.createElement("div");
+    controls.className="controls";
+
+    const minus=document.createElement("button");
+    minus.textContent="−";
+    minus.onclick=()=>changeQuantity(product.id,-1);
+
+    const quantity=document.createElement("div");
+    quantity.className="quantity";
+    quantity.textContent=`${product.quantity} ${product.unit}`;
+
+    const plus=document.createElement("button");
+    plus.textContent="+";
+    plus.onclick=()=>changeQuantity(product.id,1);
+
+    const del=document.createElement("button");
+    del.className="delete";
+    del.textContent="🗑";
+    del.onclick=()=>deleteProduct(product.id);
+
+    controls.append(minus,quantity,plus,del);
+    element.append(info,controls);
+    container.appendChild(element);
+  });
+
+  document.getElementById("productCount").textContent=products.length;
+  document.getElementById("lowCount").textContent=
+    products.filter(p=>Number(p.quantity)<=Number(p.minimum)).length;
 }
-render();
+window.render = render;
+
+onValue(productsRef, snapshot=>{
+  const data=snapshot.val()||{};
+  products=Object.entries(data).map(([id,product])=>({id,...product}));
+  render();
+});
 </script>
 </body>
 </html>
