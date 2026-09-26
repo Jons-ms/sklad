@@ -217,7 +217,17 @@ async function addHistory(action,productName,location,details,delta=0,productId=
       if(Number(delta)!==0){
         queueQuantityHistory(productId||productName,productName,location,details,delta);
       }else{
-        await writeQuantityHistory(productName,location,details,0,getUserName());
+        const user=getUserName();
+        const newRef=push(ref(db,"history"));
+        await set(newRef,{
+          type:"event",
+          action:"Додано",
+          productName,
+          location,
+          details,
+          user,
+          timestamp:Date.now()
+        });
       }
     }else{
       const user=getUserName();
