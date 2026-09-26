@@ -154,7 +154,7 @@ function toggleForm(){document.getElementById("addForm").classList.toggle("activ
 function getUserName(){return localStorage.getItem("skladchykUserName")||"Користувач";}
 function formatHistoryTime(timestamp){return new Date(timestamp).toLocaleString("uk-UA",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});}
 const pendingQuantityHistory=new Map();
-const HISTORY_GROUP_DELAY=700;
+const HISTORY_GROUP_DELAY=60000;
 
 async function writeQuantityHistory(productName,location,details,delta,user){
   try{
@@ -234,10 +234,6 @@ try{
 const newProductRef=push(ref(db,locationPaths[currentLocation]));
 const newProduct={id:newProductRef.key,name,category,quantity,unit,minimum,location:currentLocation==="warehouse"?"Склад":"Дім",locationKey:currentLocation};
 await set(newProductRef,{name,category,quantity,unit,minimum});
-
-// Firebase onValue() є єдиним джерелом актуального списку.
-// Не додаємо товар вручну в локальний масив, щоб він не дублювався.
-
 await addHistory("Додано",name,currentLocation==="warehouse"?"Склад":"Дім","Кількість: "+quantity+" "+unit);
 document.getElementById("name").value="";document.getElementById("quantity").value="";document.getElementById("unit").value="";document.getElementById("minimum").value="";toggleForm();
 }catch(error){console.error("Помилка додавання товару:",error);const message=error?.code==="PERMISSION_DENIED"?"Firebase не дозволив запис. Перевір правила Realtime Database.":"Не вдалося зберегти товар. Код: "+(error?.code||"невідома помилка");alert(message)}
@@ -255,13 +251,7 @@ try{
     newQuantity=Math.max(0,beforeQuantity+amount);
     return newQuantity;
   });
-  await addHistory(
-    amount>0?"Додано":"Віднято",
-    product.name,
-    locationKey==="warehouse"?"Склад":"Дім",
-    beforeQuantity+" → "+newQuantity+" "+product.unit,
-    newQuantity-beforeQuantity
-  );
+  await addHistory(amount>0?"Додано":"Віднято",product.name,locationKey==="warehouse"?"Склад":"Дім",beforeQuantity+" → "+newQuantity+" "+product.unit,newQuantity-beforeQuantity);
 }catch(error){console.error(error);alert("Не вдалося змінити кількість. Перевір підключення до Firebase.")}
 }
 window.changeQuantity=changeQuantity;
