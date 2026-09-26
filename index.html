@@ -223,32 +223,34 @@ function addQuantityLongPress(button,action){
   let timer=null;
   let repeatTimer=null;
   let longPress=false;
-  const clear=()=>{
+  const stopRepeat=()=>{
     if(timer){clearTimeout(timer);timer=null;}
     if(repeatTimer){clearInterval(repeatTimer);repeatTimer=null;}
   };
   button.addEventListener("pointerdown",event=>{
     if(event.button!==undefined&&event.button!==0)return;
-    clear();
+    stopRepeat();
     longPress=false;
     timer=setTimeout(()=>{
       longPress=true;
-      action();
-      repeatTimer=setInterval(action,120);
       timer=null;
+      action();
+      repeatTimer=setInterval(action,200);
     },500);
   });
-  button.addEventListener("pointerup",()=>{
-    if(timer){
+  const release=()=>{
+    if(!longPress&&timer){
       clearTimeout(timer);
       timer=null;
-      if(!longPress)action();
+      action();
     }
-    clear();
-  });
-  button.addEventListener("pointercancel",clear);
-  button.addEventListener("pointerleave",clear);
-  button.addEventListener("lostpointercapture",clear);
+    stopRepeat();
+    longPress=false;
+  };
+  button.addEventListener("pointerup",release);
+  button.addEventListener("pointercancel",release);
+  button.addEventListener("pointerleave",release);
+  button.addEventListener("lostpointercapture",release);
 }
 function render(){
 const container=document.getElementById("products"),search=document.getElementById("search").value.trim().toLowerCase(),category=document.getElementById("categoryFilter").value;
