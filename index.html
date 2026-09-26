@@ -130,6 +130,7 @@ const info=document.createElement("div");info.className="product-info";
 const title=document.createElement("h3");title.textContent=product.name;
 const categoryEl=document.createElement("div");categoryEl.className="category";categoryEl.textContent=product.category;
 const locationEl=document.createElement("div");locationEl.className="location";locationEl.textContent="📍 "+product.location;
+if(!searching)locationEl.style.display="none";
 const status=document.createElement("div");status.className=isLow?"low":"";status.textContent=isLow?"⚠️ Мало запасу":"";
 info.append(title,categoryEl,locationEl,status);
 const controls=document.createElement("div");controls.className="controls";
