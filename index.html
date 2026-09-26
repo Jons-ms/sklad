@@ -221,18 +221,34 @@ window.deleteProduct=deleteProduct;
 
 function addQuantityLongPress(button,action){
   let timer=null;
+  let repeatTimer=null;
   let longPress=false;
-  const clear=()=>{if(timer){clearTimeout(timer);timer=null;}};
-  button.addEventListener("pointerdown",()=>{
-    longPress=false;
+  const clear=()=>{
+    if(timer){clearTimeout(timer);timer=null;}
+    if(repeatTimer){clearInterval(repeatTimer);repeatTimer=null;}
+  };
+  button.addEventListener("pointerdown",event=>{
+    if(event.button!==undefined&&event.button!==0)return;
     clear();
-    timer=setTimeout(()=>{longPress=true;action();timer=null;},500);
+    longPress=false;
+    timer=setTimeout(()=>{
+      longPress=true;
+      action();
+      repeatTimer=setInterval(action,120);
+      timer=null;
+    },500);
   });
   button.addEventListener("pointerup",()=>{
-    if(timer){clear();if(!longPress)action();}
+    if(timer){
+      clearTimeout(timer);
+      timer=null;
+      if(!longPress)action();
+    }
+    clear();
   });
   button.addEventListener("pointercancel",clear);
   button.addEventListener("pointerleave",clear);
+  button.addEventListener("lostpointercapture",clear);
 }
 function render(){
 const container=document.getElementById("products"),search=document.getElementById("search").value.trim().toLowerCase(),category=document.getElementById("categoryFilter").value;
