@@ -107,8 +107,8 @@ const firebaseConfig={apiKey:"AIzaSyDe6jj7XQctQvIsoWJyBvKl3TQ5wy14CCU",authDomai
 const app=initializeApp(firebaseConfig);const db=getDatabase(app);
 let currentLocation="warehouse",products=[],warehouseProducts=[],homeProducts=[],unsubscribeWarehouse=null,unsubscribeHome=null,historyEntries=[];
 const locationPaths={warehouse:"products",home:"homeProducts"};
-const warehouseCategories=["Продукти","Побутова хімія","Інструменти","Закрутки","Інше"];
-const homeCategories=["Продукти","Побутова хімія","Інструменти","Інше"];
+const warehouseCategories=["Продукти","Побутова хімія","Закрутки","Предмети","Інше"];
+const homeCategories=["Продукти","Побутова хімія","Предмети","Інше"];
 
 function updateCategories(){
 const categories=currentLocation==="warehouse"?warehouseCategories:homeCategories;
