@@ -363,7 +363,7 @@ container.innerHTML="";
 filtered.forEach(product=>{
 const quantityValue=Number(product.quantity)||0;
 const minimumValue=Number(product.minimum)||0;
-const isZero=quantityValue===0,isMinimum=!isZero&&quantityValue===minimumValue,element=document.createElement("div");element.className="product";
+const isZero=quantityValue===0,isMinimum=!isZero&&quantityValue<=minimumValue,element=document.createElement("div");element.className="product";
 const info=document.createElement("div");info.className="product-info";
 const title=document.createElement("h3");title.textContent=product.name;
 const categoryEl=document.createElement("div");categoryEl.className="category";categoryEl.textContent=product.category;
