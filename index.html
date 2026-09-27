@@ -261,7 +261,8 @@ function openShoppingList(){
       main.textContent=product.name;
       const meta=document.createElement("div");
       meta.className="history-meta";
-      meta.textContent="📍 "+product.location+" · Зараз: "+product.quantity+" "+product.unit+" · Мінімум: "+product.minimum+" "+product.unit;
+      const need=Math.max(0,Number(product.minimum)-Number(product.quantity));
+      meta.textContent="📍 "+product.location+" · Зараз: "+product.quantity+" "+product.unit+" · Мінімум: "+product.minimum+" "+product.unit+" · Докупити: "+need+" "+product.unit;
       row.append(main,meta);
       list.appendChild(row);
     });
